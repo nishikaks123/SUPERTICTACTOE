@@ -1,18 +1,22 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Board } from "@/components/game/Board";
 import { GameStatus } from "@/components/game/GameStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { calculateWinner } from "@/lib/game";
+import { calculateWinner, findBestMove } from "@/lib/game";
 import { cn } from "@/lib/utils";
-import { Users, X, Circle, Award } from "lucide-react";
+import { Users, X, Circle, Award, Bot } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type GameMode = "pvp" | "pva";
 
 export default function Home() {
+  const [gameMode, setGameMode] = useState<GameMode>("pvp");
   const [playerXName, setPlayerXName] = useState("Player X");
   const [playerOName, setPlayerOName] = useState("Player O");
   const [scores, setScores] = useState({ X: 0, O: 0, draw: 0 });
@@ -26,7 +30,7 @@ export default function Home() {
   const isDraw = board.every((square) => square !== null) && !winner;
   const isGameOver = !!winner || isDraw;
 
-  function handlePlay(i: number) {
+  const handlePlay = useCallback((i: number) => {
     if (winner || board[i]) {
       return;
     }
@@ -34,7 +38,17 @@ export default function Home() {
     nextBoard[i] = isXNext ? "X" : "O";
     setBoard(nextBoard);
     setIsXNext(!isXNext);
-  }
+  }, [board, isXNext, winner]);
+
+  useEffect(() => {
+    if (gameMode === "pva" && !isXNext && !isGameOver) {
+      const bestMove = findBestMove(board);
+      if (bestMove !== -1) {
+        setTimeout(() => handlePlay(bestMove), 500);
+      }
+    }
+  }, [gameMode, isXNext, board, isGameOver, handlePlay]);
+
 
   function handleNewGame() {
     setScores({ X: 0, O: 0, draw: 0 });
@@ -51,24 +65,43 @@ export default function Home() {
     const newWinnerInfo = calculateWinner(board);
     if (newWinnerInfo) {
       setWinnerInfo(newWinnerInfo);
-      setScores(prevScores => ({...prevScores, [newWinnerInfo.winner]: prevScores[newWinnerInfo.winner as 'X' | 'O'] + 1}));
+      if(newWinnerInfo.winner) {
+        setScores(prevScores => ({...prevScores, [newWinnerInfo.winner as 'X' | 'O']: prevScores[newWinnerInfo.winner as 'X' | 'O'] + 1}));
+      }
     } else if (board.every(s => s !== null)) {
       setWinnerInfo({ winner: null, line: null }); // Draw
       setScores(prevScores => ({...prevScores, draw: prevScores.draw + 1}));
     }
   }, [board]);
+  
+  const handleModeChange = (mode: string) => {
+    setGameMode(mode as GameMode);
+    if (mode === 'pva') {
+        setPlayerOName("AI Bot");
+    } else {
+        setPlayerOName("Player O");
+    }
+    handleNewGame();
+  }
 
   const playerNames = {
     X: playerXName,
-    O: playerOName,
+    O: gameMode === 'pva' ? 'AI Bot' : playerOName,
   };
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4 font-body">
       <div className="flex flex-col items-center gap-4 md:gap-6 w-full max-w-md">
         <h1 className="text-5xl md:text-6xl font-bold font-headline text-primary drop-shadow-md text-center">
-          Tic Tac Toe
+          Super Tic Tac Toe
         </h1>
+        
+        <Tabs value={gameMode} onValueChange={handleModeChange} className="w-full justify-center flex">
+            <TabsList>
+                <TabsTrigger value="pvp"><Users className="mr-2"/>Player vs Player</TabsTrigger>
+                <TabsTrigger value="pva"><Bot className="mr-2"/>Player vs AI</TabsTrigger>
+            </TabsList>
+        </Tabs>
 
         <Card className="w-full">
             <CardHeader>
@@ -81,7 +114,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-2 w-full">
                     <Circle className="h-6 w-6 text-primary flex-shrink-0"/>
-                    <Input value={playerOName} onChange={(e) => setPlayerOName(e.target.value)} placeholder="Player O Name" />
+                    <Input value={playerOName} onChange={(e) => setPlayerOName(e.target.value)} placeholder="Player O Name" disabled={gameMode === 'pva'}/>
                 </div>
             </CardContent>
         </Card>
@@ -108,7 +141,7 @@ export default function Home() {
                   <AvatarFallback className="bg-destructive/20 text-destructive font-bold">X</AvatarFallback>
                 </Avatar>
                 <div>
-                    <div className="font-semibold text-muted-foreground">{playerXName}</div>
+                    <div className="font-semibold text-muted-foreground">{playerNames.X}</div>
                     <div className="text-2xl font-bold">{scores.X}</div>
                 </div>
               </div>
@@ -123,10 +156,12 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                  <Avatar>
-                  <AvatarFallback className="bg-primary/20 text-primary font-bold">O</AvatarFallback>
+                  <AvatarFallback className={cn("font-bold", gameMode === 'pva' ? 'bg-blue-500/20 text-blue-500' : 'bg-primary/20 text-primary' )}>
+                    {gameMode === 'pva' ? <Bot/> : 'O'}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
-                    <div className="font-semibold text-muted-foreground">{playerOName}</div>
+                    <div className="font-semibold text-muted-foreground">{playerNames.O}</div>
                     <div className="text-2xl font-bold">{scores.O}</div>
                 </div>
               </div>

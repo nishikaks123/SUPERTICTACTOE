@@ -1,4 +1,5 @@
 
+
 export function calculateWinner(squares: (string | null)[]): { winner: 'X' | 'O'; line: number[] } | null {
   const lines = [
     [0, 1, 2],
@@ -17,4 +18,57 @@ export function calculateWinner(squares: (string | null)[]): { winner: 'X' | 'O'
     }
   }
   return null;
+}
+
+// Minimax algorithm to find the best move for the AI
+function minimax(board: (string | null)[], isMaximizing: boolean): number {
+    const winnerInfo = calculateWinner(board);
+    if (winnerInfo) {
+        return winnerInfo.winner === 'O' ? 10 : -10;
+    }
+    if (board.every(s => s !== null)) {
+        return 0; // Draw
+    }
+
+    if (isMaximizing) {
+        let bestScore = -Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (!board[i]) {
+                board[i] = 'O';
+                let score = minimax(board, false);
+                board[i] = null;
+                bestScore = Math.max(score, bestScore);
+            }
+        }
+        return bestScore;
+    } else {
+        let bestScore = Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (!board[i]) {
+                board[i] = 'X';
+                let score = minimax(board, true);
+                board[i] = null;
+                bestScore = Math.min(score, bestScore);
+            }
+        }
+        return bestScore;
+    }
+}
+
+export function findBestMove(board: (string | null)[]): number {
+    let bestScore = -Infinity;
+    let move = -1;
+
+    for (let i = 0; i < 9; i++) {
+        if (!board[i]) {
+            board[i] = 'O';
+            let score = minimax(board, false);
+            board[i] = null;
+            if (score > bestScore) {
+                bestScore = score;
+                move = i;
+            }
+        }
+    }
+    return move;
 }
